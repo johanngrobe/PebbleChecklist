@@ -71,6 +71,46 @@
     ],
     "capabilities": [
       "configurable"
+    ],
+    "usesPermissions": [
+      {
+        "name": "Internet",
+        "parameters": {
+          "domains": [
+            "ciam.prod.cookidoo.vorwerk-digital.com",
+            "cookidoo.at",
+            "cookidoo.be",
+            "cookidoo.ca",
+            "cookidoo.ch",
+            "cookidoo.co.uk",
+            "cookidoo.com.au",
+            "cookidoo.com.tr",
+            "cookidoo.cz",
+            "cookidoo.de",
+            "cookidoo.es",
+            "cookidoo.fr",
+            "cookidoo.international",
+            "cookidoo.it",
+            "cookidoo.mx",
+            "cookidoo.pl",
+            "cookidoo.pt",
+            "cookidoo.thermomix.com"
+          ]
+        }
+      },
+      {
+        "name": "Internet",
+        "reason": "Sync lists with Home Assistant via Nabu Casa",
+        "parameters": {
+          "domains": [
+            "ui.nabu.casa"
+          ]
+        }
+      },
+      {
+        "name": "LocalNetwork",
+        "reason": "Sync lists with Home Assistant on your home network"
+      }
     ]
   }
 }

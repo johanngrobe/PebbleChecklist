@@ -22,18 +22,6 @@ function getQueryParam(variable, defaultValue) {
   return defaultValue || false;
 }
 
-function parseCurrentState() {
-  const state = window.CURRENT_STATE || getQueryParam("current_state", "[]");
-  try {
-    if (typeof state === 'string') {
-      items = JSON.parse(state);
-    } else {
-      items = state;
-    }
-  }
-  catch (e) { items = []; }
-}
-
 // settings bitfield flags (shared with the watchapp)
 const SETTINGS_FLAG_SHOW_VOICE = 1;
 const SETTINGS_FLAG_MOVE_CHECKED = 2;
@@ -76,11 +64,21 @@ function truncateName(text) {
   return chars.join("");
 }
 
-// The list exactly as it's sent to the watch
-function getListJson() {
-  return JSON.stringify(items.map(function (item) {
-    return { n: truncateName(item.n.trim()), c: item.c ? 1 : 0 };
+// A list exactly as it's sent to the watch. Items of a synced list keep their
+// remote id, so the phone can tell what was changed, and Cookidoo recipe
+// ingredients their "l" (locked: can be checked, not deleted).
+function listJson(listItems) {
+  return JSON.stringify(listItems.map(function (item) {
+    const entry = { n: truncateName(item.n.trim()), c: item.c ? 1 : 0 };
+    if (item.i) entry.i = item.i;
+    if (isLocked(item)) entry.l = 1;
+    return entry;
   }));
+}
+
+// Cookidoo recipe ingredients can only be checked: not renamed or deleted
+function isLocked(item) {
+  return !!(item.i && item.l);
 }
 
 // Shows how close the list is to the watch's limits, and blocks adding or
@@ -91,35 +89,40 @@ function updateLimitStatus(notice) {
   const input = document.getElementById("new_item_input");
   const isFull = items.length >= MAX_ITEMS;
   const isTooLarge = items.length > MAX_ITEMS ||
-    utf8Length(getListJson()) > LIST_JSON_MAX_BYTES;
+    utf8Length(listJson(items)) > LIST_JSON_MAX_BYTES;
 
   input.disabled = isFull;
-  input.placeholder = isFull ? "List is full" : "Add new item...";
+  input.placeholder = isFull ? t("List is full") : t("Add new item...");
   document.getElementById("add_btn").disabled = isFull || !input.value.trim();
   document.getElementById("save_btn").disabled = isTooLarge;
 
   status.classList.toggle("error", isTooLarge);
   if (isTooLarge) {
-    status.textContent = "This list is too long to send to your watch. Remove some items or shorten their names to save.";
+    status.textContent = t("This list is too long to send to your watch. Remove some items or shorten their names to save.");
   } else if (notice) {
     status.textContent = notice;
   } else if (isFull) {
-    status.textContent = "List is full (" + MAX_ITEMS + " items).";
+    status.textContent = t("List is full ({max} items).", { max: MAX_ITEMS });
   } else if (items.length >= MAX_ITEMS - 5) {
     const left = MAX_ITEMS - items.length;
-    status.textContent = "Room for " + left + " more item" + (left === 1 ? "" : "s") + ".";
+    status.textContent = t(left === 1 ? "Room for {count} more item." : "Room for {count} more items.", { count: left });
   } else {
     status.textContent = "";
   }
 }
 
-// Warns if the watch couldn't fit its whole list into the message
+// Warns if the whole list couldn't be loaded (the watch's list didn't fit into
+// a message, or the online list has more items than the watch can show)
 function showTruncatedWarning() {
-  const total = window.TOTAL_ITEMS;
-  if (typeof total !== "number" || total <= items.length) return;
+  const list = currentList();
+  const total = list.total;
   const warning = document.getElementById("truncated_warning");
-  warning.textContent = "Only " + items.length + " of the " + total +
-    " items on your watch could be loaded. Saving will remove the rest.";
+  if (typeof total !== "number" || total <= items.length) {
+    warning.style.display = "none";
+    return;
+  }
+  warning.textContent = t("Only {count} of the {total} items could be loaded.", { count: items.length, total: total }) +
+    " " + (list.type === "local" ? t("Saving will remove the rest.") : t("The others stay online."));
   warning.style.display = "block";
 }
 
@@ -157,11 +160,15 @@ function renderItems() {
     const item = items[index];
     const checked = item.c ? "checked" : "";
     const checkedClass = item.c ? " checked" : "";
-    const html = '<div class="item" data-index="' + index + '">' +
+    const locked = isLocked(item);
+    const html = '<div class="item' + (locked ? ' locked' : '') + '" data-index="' + index + '"' +
+      (locked ? ' title="' + escapeHtml(t("Recipe ingredient: can be checked, but not renamed or deleted")) + '"' : '') + '>' +
       '<span class="drag-handle" ontouchstart="onDragStart(event,' + index + ')" onmousedown="onDragStart(event,' + index + ')">&#x283F;</span>' +
       '<label class="checkbox-label"><input type="checkbox" ' + checked + ' onchange="toggleItem(' + index + ')"><span class="checkbox-box"></span></label>' +
-      '<input type="text" class="item-text' + checkedClass + '" value="' + escapeHtml(item.n) + '" maxlength="' + MAX_NAME_BYTES + '" oninput="updateItemText(' + index + ', this.value)">' +
-      '<button class="icon-btn delete-btn" onclick="deleteItem(' + index + ')">&#10005;</button>' +
+      '<input type="text" class="item-text' + checkedClass + '" value="' + escapeHtml(item.n) + '" maxlength="' + MAX_NAME_BYTES + '"' +
+      (locked ? ' readonly' : ' oninput="updateItemText(' + index + ', this.value)"') + '>' +
+      (locked ? '<span class="icon-btn delete-btn placeholder" aria-hidden="true">&#10005;</span>'
+        : '<button class="icon-btn delete-btn" aria-label="' + escapeHtml(t("Delete")) + '" onclick="deleteItem(' + index + ')">&#10005;</button>') +
       '</div>';
     container.insertAdjacentHTML("beforeend", html);
   });
@@ -278,12 +285,13 @@ function onDragEnd() {
 }
 
 function deleteItem(index) {
+  if (isLocked(items[index])) return;
   items.splice(index, 1);
   renderItems();
 }
 
 function clearCompleted() {
-  items = items.filter(function (item) { return !item.c; });
+  items = items.filter(function (item) { return !item.c || isLocked(item); });
   renderItems();
 }
 
@@ -321,7 +329,7 @@ function showIOSection(mode) {
   } else {
     textarea.value = "";
     textarea.readOnly = false;
-    textarea.placeholder = "Paste plaintext list or an exported CSV";
+    textarea.placeholder = t("Paste plaintext list or an exported CSV");
     applyRow.style.display = "block";
     section.dataset.mode = "import";
     section.style.display = "block";
@@ -388,8 +396,8 @@ function applyImport() {
   document.getElementById("io_section").style.display = "none";
   renderItems();
   if (added.length < imported.length) {
-    updateLimitStatus("Only " + added.length + " of " + imported.length +
-      " items were imported. Lists are limited to " + MAX_ITEMS + " items.");
+    updateLimitStatus(t("Only {count} of {total} items were imported. Lists are limited to {max} items.",
+      { count: added.length, total: imported.length, max: MAX_ITEMS }));
   }
 }
 
@@ -399,7 +407,16 @@ function cancelAndClose() {
 
 function submitData() {
   if (document.getElementById("save_btn").disabled) return;
-  const config = { items: JSON.parse(getListJson()), settings: getSettingsBitfield() };
+  const tooLarge = findTooLargeList();
+  if (tooLarge >= 0) {
+    // show it, with the reason (see updateLimitStatus)
+    if (tooLarge !== currentListIndex) selectList(tooLarge);
+    return;
+  }
+  const config = { lists: getListsForSave(), settings: getSettingsBitfield() };
+  if (activateListId !== null) config.activate = activateListId;
+  if (cookidooAction) config.cookidoo = cookidooAction;
+  if (homeAssistantAction) config.homeAssistant = homeAssistantAction;
   const configStr = encodeURIComponent(JSON.stringify(config)).replace(/'/g, '%27');
   document.location.href = getQueryParam("return_to", "pebblejs://close#") + configStr;
 }
@@ -414,10 +431,17 @@ document.getElementById("new_item_input").addEventListener("keypress", function 
   if (e.key === "Enter" && this.value.trim()) addItem();
 });
 
-window.CURRENT_STATE = __CURRENT_STATE__;
+window.LISTS = __LISTS__;
+window.ACTIVE_LIST = __ACTIVE_LIST__;
 window.CURRENT_SETTINGS = __CURRENT_SETTINGS__;
-window.TOTAL_ITEMS = __TOTAL_ITEMS__;
-parseCurrentState();
+window.COOKIDOO = __COOKIDOO__;
+window.HOME_ASSISTANT = __HOME_ASSISTANT__;
+window.LANGUAGE = "__LANGUAGE__";
+translatePage();
+initLists();
 parseCurrentSettings();
 renderItems();
 showTruncatedWarning();
+initListEditor();
+initHomeAssistant();
+initCookidoo();

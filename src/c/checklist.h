@@ -13,12 +13,28 @@ typedef struct ChecklistItem {
   // is the item checked?
   bool is_checked;
 
-  // reserved for future use
-  uint8_t sublist_id;
+  // which item of the phone's last synced list (e.g. the Cookidoo shopping
+  // list) this is, 1-based; 0 for items that were added on the watch and
+  // haven't been synced yet. Persisted with the item (this byte used to be the
+  // never-used "sublist_id", so older saved lists load as all zeros).
+  uint8_t remote_id : 7;
+
+  // the item can be checked but not deleted (a Cookidoo recipe ingredient);
+  // shares remote_id's byte, so the stored layout is unchanged
+  uint8_t is_locked : 1;
 } ChecklistItem;
 
+// the largest remote_id that fits
+#define MAX_REMOTE_ID 127
+
+// Loads the stored list (call once at startup) and saves it (at exit)
 extern void checklist_init();
 extern void checklist_deinit();
+
+/*
+ * Writes the list to persistent storage now (e.g. after it was replaced)
+ */
+extern void checklist_save();
 
 /*
  * Returns the total number of checklist items
@@ -43,8 +59,14 @@ extern void checklist_add_items(char *name);
 extern void checklist_item_toggle_checked(int id);
 
 /*
- * Deletes all completed items from the checklist
- * Returns the number of items that aren't deleted
+ * Returns the number of checked items that "clear completed" would delete
+ * (checked items that aren't locked)
+ */
+extern int checklist_get_num_items_deletable();
+
+/*
+ * Deletes all completed items from the checklist, except locked ones
+ * Returns the number of items deleted
  */
 extern int checklist_delete_completed_items();
 

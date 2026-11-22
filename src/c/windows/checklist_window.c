@@ -3,11 +3,15 @@
  * associated checkboxes.
  */
 
+#include "../i18n.h"
 #include "checklist_window.h"
 #include "../checklist.h"
+#include "../lists.h"
+#include "../messaging.h"
 #include "../settings.h"
 #include "../util.h"
 #include "dialog_message_window.h"
+#include "list_picker_window.h"
 
 static Window *s_main_window;
 static MenuLayer *s_menu_layer;
@@ -33,6 +37,9 @@ static char s_last_text[512];
 // buffer to hold alert message
 static char s_deleted_msg[30];
 
+// the list shown, to tell when the phone switched to another one
+static uint8_t s_shown_list_id;
+
 #ifdef PBL_TOUCH
 // the row that was highlighted when the current touch began. Touch navigation
 // moves the highlight to a tapped row before reporting the tap, so this is
@@ -44,12 +51,14 @@ static int s_touchdown_row = -1;
 // so the lines narrow along with the bottom of the circle
 #define EMPTY_HINT_TEXT                                                        \
   PBL_IF_ROUND_ELSE(                                                           \
-      "Add items via the app\nconfig page in the Pebble\napp on your phone",   \
-      "Add items via the app config page in the Pebble app on your phone")
+      TR("Add items via the app\nconfig page in the Pebble\napp on your phone", \
+         "Füge Einträge über die\nEinstellungen der App in\nder Pebble-App hinzu"), \
+      TR("Add items via the app config page in the Pebble app on your phone",  \
+         "Füge Einträge über die Einstellungen der App in der Pebble-App auf deinem Handy hinzu"))
 // blank space the Gothic fonts leave above their text
 #define EMPTY_TEXT_TOP_SPACE 4
 
-static const char *const CLEAR_COMPLETED_TEXT = "Clear completed";
+#define CLEAR_COMPLETED_TEXT TR("Clear completed", "Erledigte löschen")
 
 // when "move checked to bottom" is enabled, how long a toggled item and the
 // items it passes take to slide into their new positions
@@ -335,6 +344,7 @@ static void dictation_session_callback(DictationSession *session,
   if (status == DictationSessionStatusSuccess) {
     stop_move_animation();
     checklist_add_items(transcription);
+    messaging_notify_list_changed();
     menu_layer_reload_data(s_menu_layer);
     update_empty_msg_layer();
   }
@@ -344,7 +354,9 @@ static uint16_t get_num_rows_callback(MenuLayer *menu_layer,
                                       uint16_t section_index, void *context) {
   uint16_t num_rows = checklist_get_num_items() + get_item_row_offset();
 
-  if (checklist_get_num_items_checked() > 0) {
+  // checked items that can't be deleted (Cookidoo recipe ingredients) don't
+  // count, so the row isn't offered when it would do nothing
+  if (checklist_get_num_items_deletable() > 0) {
     num_rows++;
   }
 
@@ -621,20 +633,23 @@ static void select_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index,
       dictation_session_start(s_dictation_session);
     } else {
       dialog_settings_window_push(
-          "Add items via the settings page on your phone.");
+          TR("Add items via the settings page on your phone.",
+             "Füge Einträge über die Einstellungen auf deinem Handy hinzu."));
     }
   } else if (cell_index->row == checklist_get_num_items() + offset) {
     // the last row is always the "clear completed" button
-    int num_deleted = checklist_get_num_items_checked();
+    int num_deleted = checklist_get_num_items_deletable();
 
     // generate and display "items deleted" message
     snprintf(s_deleted_msg, sizeof(s_deleted_msg),
-             ((num_deleted == 1) ? "%i Item Deleted" : "%i Items Deleted"),
+             ((num_deleted == 1) ? TR("%i Item Deleted", "%i Eintrag gelöscht")
+                                 : TR("%i Items Deleted", "%i Einträge gelöscht")),
              num_deleted);
 
     // do stuff
     dialog_shred_window_push(s_deleted_msg);
     checklist_delete_completed_items();
+    messaging_notify_list_changed();
     menu_layer_reload_data(menu_layer);
     update_empty_msg_layer();
 
@@ -642,6 +657,7 @@ static void select_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index,
     int display_index = cell_index->row - offset;
     int id = get_item_id_for_display_index(display_index);
     checklist_item_toggle_checked(id);
+    messaging_notify_list_changed();
     menu_layer_reload_data(menu_layer);
 
     int new_display_index = get_display_index_for_item_id(id);
@@ -718,7 +734,20 @@ static void up_down_click_handler(ClickRecognizerRef recognizer,
   menu_layer_set_selected_next(s_menu_layer, up, MenuRowAlignCenter, true);
 }
 
+// Back leads to the list picker when there's more than one list. The picker is
+// normally below this window already; if the directory grew while the list
+// was open, it's put there now.
+static void back_click_handler(ClickRecognizerRef recognizer, void *context) {
+  if (!list_picker_window_is_open() && lists_get_count() > 1) {
+    list_picker_window_push(true);
+    window_stack_remove(s_main_window, false);
+    return;
+  }
+  window_stack_pop(true);
+}
+
 static void click_config_provider(void *context) {
+  window_single_click_subscribe(BUTTON_ID_BACK, back_click_handler);
   window_single_repeating_click_subscribe(BUTTON_ID_UP, 200,
                                           up_down_click_handler);
   window_single_repeating_click_subscribe(BUTTON_ID_DOWN, 200,
@@ -727,7 +756,7 @@ static void click_config_provider(void *context) {
 }
 
 static void window_load(Window *window) {
-  checklist_init();
+  s_shown_list_id = lists_get_active_id();
 
   Layer *window_layer = window_get_root_layer(window);
   GRect windowBounds = layer_get_bounds(window_layer);
@@ -792,7 +821,7 @@ static void window_load(Window *window) {
       GRect(0, bounds.size.h / 2 + 40, bounds.size.w, bounds.size.h),
       GRect(0, bounds.size.h / 2 + 25, bounds.size.w, bounds.size.h)));
 
-  text_layer_set_text(s_empty_msg_layer, "No items");
+  text_layer_set_text(s_empty_msg_layer, TR("No items", "Keine Einträge"));
   text_layer_set_background_color(s_empty_msg_layer, GColorClear);
   text_layer_set_text_alignment(s_empty_msg_layer, GTextAlignmentCenter);
   text_layer_set_font(s_empty_msg_layer,
@@ -825,15 +854,21 @@ static void window_unload(Window *window) {
   touch_service_unsubscribe();
 #endif
   stop_move_animation();
-  checklist_deinit();
+  checklist_save();
 
   graphics_text_attributes_destroy(s_text_att);
 
+  // the window is unloaded when going back to the list picker, and messages
+  // from the phone keep calling checklist_window_refresh, which checks these
   menu_layer_destroy(s_menu_layer);
+  s_menu_layer = NULL;
   status_bar_layer_destroy(s_status_bar);
   text_layer_destroy(s_empty_msg_layer);
+  s_empty_msg_layer = NULL;
   text_layer_destroy(s_empty_hint_layer);
+  s_empty_hint_layer = NULL;
   dictation_session_destroy(s_dictation_session);
+  s_dictation_session = NULL;
 
   gbitmap_destroy(s_tick_black_bitmap);
   gbitmap_destroy(s_tick_white_bitmap);
@@ -862,6 +897,13 @@ void checklist_window_refresh() {
 
   if (s_menu_layer != NULL) {
     menu_layer_reload_data(s_menu_layer);
+
+    // another list: start at its top
+    if (s_shown_list_id != lists_get_active_id()) {
+      s_shown_list_id = lists_get_active_id();
+      menu_layer_set_selected_index(s_menu_layer, MenuIndex(0, 0),
+                                    MenuRowAlignTop, false);
+    }
 
     // make sure the selection is still in range (e.g. if the voice button
     // was just hidden or items were removed)

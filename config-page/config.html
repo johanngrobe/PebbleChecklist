@@ -11,7 +11,12 @@
 <body>
   <div class="container">
     <div class="submit-section">
-      <h1 class="title">Checklist</h1>
+      <button type="button" class="title list-switch" id="list_switch" onclick="openLists()" aria-haspopup="dialog">
+        <span id="list_title">Checklist</span>
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M1.6 4.8a1 1 0 0 1 1.4 0L8 9.6l5-4.8a1 1 0 1 1 1.4 1.4l-5.7 5.5a1 1 0 0 1-1.4 0L1.6 6.2a1 1 0 0 1 0-1.4z"/>
+        </svg>
+      </button>
       <button class="menu-btn" onclick="openSettings()" aria-label="Settings" aria-haspopup="dialog">
         <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" focusable="false">
           <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
@@ -28,6 +33,10 @@
         <div class="menu-items" id="menu_items" role="menu">
           <button role="menuitem" onclick="clearCompleted(); closeMenu()">Clear completed</button>
           <hr class="menu-separator">
+          <button role="menuitem" onclick="openLists(); closeMenu()">Lists</button>
+          <button role="menuitem" onclick="openCookidoo(); closeMenu()">Cookidoo</button>
+          <button role="menuitem" onclick="openHomeAssistant(); closeMenu()">Home Assistant</button>
+          <hr class="menu-separator">
           <button role="menuitem" onclick="exportCSV(); closeMenu()">Export</button>
           <button role="menuitem" onclick="showImport(); closeMenu()">Import</button>
         </div>
@@ -35,6 +44,11 @@
       <button class="submit-btn" id="save_btn" onclick="submitData()">Save</button>
     </div>
     <div class="items-section">
+      <div class="list-meta">
+        <span id="list_meta_text"></span>
+        <button type="button" class="text-btn" id="show_on_watch_btn" onclick="showOnWatch()">Show on watch</button>
+      </div>
+      <button type="button" class="cookidoo-banner" id="cookidoo_banner" style="display:none;"></button>
       <p class="list-notice error" id="truncated_warning" style="display:none;"></p>
       <div class="items-list" id="items_list"></div>
       <div class="add-row">
@@ -81,6 +95,106 @@
       <button class="submit-btn" onclick="closeSettings()">Done</button>
     </div>
   </div>
+  <div class="modal-overlay" id="cookidoo_modal" style="display:none;" onclick="closeCookidoo(event)">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Cookidoo">
+      <h2 class="section-header">Cookidoo</h2>
+      <form id="cookidoo_signed_out" class="cookidoo-form" novalidate>
+        <p class="modal-text">Sign in to add your Cookidoo shopping list to your lists. Checking items off on your watch also checks them off in Cookidoo.</p>
+        <label class="field">
+          <span>Country</span>
+          <select id="cookidoo_country" class="field-input"></select>
+        </label>
+        <label class="field" id="cookidoo_language_row">
+          <span>Language</span>
+          <select id="cookidoo_language" class="field-input"></select>
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="cookidoo_email" class="field-input" autocomplete="username" autocapitalize="off" spellcheck="false">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" id="cookidoo_password" class="field-input" autocomplete="current-password">
+        </label>
+        <p class="modal-text small">Your password is only sent to Cookidoo. Your other lists stay as they are.</p>
+        <p class="list-notice error" id="cookidoo_error" role="alert"></p>
+        <div class="modal-buttons">
+          <button type="button" class="text-btn" onclick="closeCookidoo()">Cancel</button>
+          <button type="submit" class="submit-btn" id="cookidoo_sign_in_btn">Sign in</button>
+        </div>
+      </form>
+      <div id="cookidoo_signed_in" style="display:none;">
+        <p class="modal-text" id="cookidoo_linked_status"></p>
+        <p class="modal-text small">Recipe ingredients can only be checked off. Items you add on your watch or here are added to Cookidoo as extra items.</p>
+        <p class="modal-text error-text" id="cookidoo_reauth_hint" style="display:none;">Your Cookidoo session has expired.</p>
+        <div class="modal-buttons">
+          <button type="button" class="text-btn" onclick="signOutOfCookidoo()">Sign out</button>
+          <button type="button" class="text-btn" onclick="showCookidooSignIn()">Sign in again</button>
+          <button type="button" class="submit-btn" onclick="closeCookidoo()">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="lists_modal" style="display:none;" onclick="closeLists(event)">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Lists">
+      <h2 class="section-header">Lists</h2>
+      <div id="lists_rows" class="lists-rows"></div>
+      <p class="modal-text small" id="lists_limit_hint"></p>
+      <div class="modal-buttons">
+        <button type="button" class="text-btn" id="new_list_btn" onclick="openListEditor(null)">New list</button>
+        <button type="button" class="submit-btn" onclick="closeLists()">Done</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="list_edit_modal" style="display:none;" onclick="closeListEditor(event)">
+    <form class="modal" id="list_edit_form" role="dialog" aria-modal="true" aria-labelledby="list_edit_title" novalidate>
+      <h2 class="section-header" id="list_edit_title">New list</h2>
+      <label class="field">
+        <span>Name</span>
+        <input type="text" id="list_name" class="field-input" maxlength="29">
+      </label>
+      <label class="field" id="list_type_row">
+        <span>Type</span>
+        <select id="list_type" class="field-input">
+          <option value="ha">Home Assistant to-do list</option>
+          <option value="local">Checklist (only on your watch and phone)</option>
+        </select>
+      </label>
+      <p class="modal-text small" id="list_type_hint"></p>
+      <p class="list-notice error" id="list_edit_error" role="alert"></p>
+      <div class="modal-buttons">
+        <button type="button" class="text-btn danger" id="list_delete_btn" onclick="deleteEditedList()">Delete list</button>
+        <button type="button" class="text-btn" onclick="closeListEditor()">Cancel</button>
+        <button type="submit" class="submit-btn">OK</button>
+      </div>
+    </form>
+  </div>
+  <div class="modal-overlay" id="ha_modal" style="display:none;" onclick="closeHomeAssistant(event)">
+    <form class="modal" id="ha_form" role="dialog" aria-modal="true" aria-label="Home Assistant" novalidate>
+      <h2 class="section-header">Home Assistant</h2>
+      <p class="modal-text" id="ha_status"></p>
+      <p class="modal-text">Every to-do list in Home Assistant, like the Shopping List, is added to your lists and synced. Hide the ones you don't need on your watch in Lists.</p>
+      <label class="field">
+        <span>Home Assistant URL</span>
+        <input type="url" id="ha_url" class="field-input" placeholder="http://homeassistant.local:8123" autocapitalize="off" spellcheck="false">
+      </label>
+      <label class="field">
+        <span>Long-lived access token</span>
+        <input type="password" id="ha_token" class="field-input" autocomplete="off">
+      </label>
+      <p class="modal-text small">Create a token in Home Assistant: your profile → Security → Long-lived access tokens. Your phone connects when you save. Home Assistant 2024.8 or later is needed.</p>
+      <p class="list-notice error" id="ha_error" role="alert"></p>
+      <div class="modal-buttons">
+        <button type="button" class="text-btn" id="ha_disconnect_btn" onclick="disconnectHomeAssistant()">Disconnect</button>
+        <button type="button" class="text-btn" onclick="closeHomeAssistant()">Cancel</button>
+        <button type="submit" class="submit-btn">Connect</button>
+      </div>
+    </form>
+  </div>
+  <script src="i18n.js"></script>
+  <script src="cookidoo.js"></script>
+  <script src="homeassistant.js"></script>
+  <script src="lists.js"></script>
   <script src="config.js"></script>
 </body>
 

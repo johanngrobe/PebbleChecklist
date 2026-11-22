@@ -12,7 +12,7 @@ Grocery shopping will never be the same.
 
 ## Several lists
 
-You can have up to 8 lists. In the app's settings on your phone, tap the list name at the top to switch lists or create, rename and delete them. Each list is one of:
+Your watch shows up to 8 lists, and your phone keeps up to 32. In the app's settings on your phone, tap the list name at the top (or choose **Lists** in the ⋯ menu) to switch lists, create new ones, or rename and delete them with the ✎ button. The eye button next to each list hides it on your watch or shows it again; hidden lists stay on your phone and in the settings. Each list is one of:
 
 - a **checklist**, stored on your watch and phone, like before
 - your **Cookidoo shopping list** (see below)
@@ -22,7 +22,10 @@ On the watch, press Back in a list to see all your lists, and pick one to open i
 
 ## Home Assistant to-do lists
 
-A list can be synced with any to-do list in Home Assistant (Shopping List, Local To-do, …), both ways. In the settings, open the ⋯ menu, choose **Home Assistant**, and enter your Home Assistant URL (e.g. `http://homeassistant.local:8123`, or your Nabu Casa URL) and a long-lived access token (your Home Assistant profile → Security). Then create a new list of type "Home Assistant to-do list" and pick the to-do list. Home Assistant 2024.8 or later is needed. For a URL that isn't on your home network or Nabu Casa, the Pebble app asks for permission the first time.
+Lists can be synced with the to-do lists in Home Assistant (Shopping List, Local To-do, …), both ways. In the settings, open the ⋯ menu, choose **Home Assistant**, and enter your Home Assistant URL (e.g. `http://homeassistant.local:8123`, or your Nabu Casa URL) and a long-lived access token (your Home Assistant profile → Security). Home Assistant 2024.8 or later is needed. For a URL that isn't on your home network or Nabu Casa, the Pebble app asks for permission the first time.
+
+- Every to-do list in Home Assistant is added to your lists automatically (hidden once your watch shows 8 lists), and removed when it's deleted in Home Assistant. They can't be deleted in the settings, only hidden.
+- New lists you create while Home Assistant is connected become Home Assistant lists: a Local To-do list with that name is created in Home Assistant when you save. This needs an administrator's access token. If Home Assistant can't be reached right now (e.g. you're away from home), the list works like a normal checklist on your watch and phone and is created in Home Assistant as soon as it can be reached.
 
 ## Cookidoo shopping list
 
@@ -34,6 +37,10 @@ The app can show your Cookidoo (Thermomix) shopping list ("Einkaufsliste") on yo
 - "Clear completed" removes checked extra items from Cookidoo; checked ingredients stay checked in Cookidoo but are hidden on the watch until they're unchecked there
 
 Synced lists (Cookidoo and Home Assistant) are synced when they're opened on the watch, every 2 minutes while the app is open, and shortly after every change on the watch. Your password only goes to Cookidoo's sign-in server. This uses the same unofficial API as the Home Assistant Cookidoo integration.
+
+## Languages
+
+The app is in English and German. The watch app follows your watch's language; the settings page, sync messages and default list names follow it too (or your phone's language if the watch's isn't known).
 
 ## Special build instructions
 

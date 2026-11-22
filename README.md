@@ -10,6 +10,8 @@ Using either the Pebble microphone or the fully-offline app settings page, add a
 
 Grocery shopping will never be the same.
 
+> **This is a fork** of [freakified/PebbleChecklist](https://github.com/freakified/PebbleChecklist). It adds several lists, Cookidoo and Home Assistant sync, and a German translation. This version is **not in the Pebble or Rebble app store**: the store has the original app, without these features. See [Installing this version](#installing-this-version).
+
 ## Several lists
 
 You can have up to 8 lists. In the app's settings on your phone, tap the list name at the top to switch lists or create, rename and delete them. Each list is one of:
@@ -39,12 +41,15 @@ Synced lists (Cookidoo and Home Assistant) are synced when they're opened on the
 
 To build the local config page, run `node buildConfigPage.js` from the project root. This should be done before `pebble build`.
 
-## Want to try it?
+## Installing this version
 
-Grab it from the Pebble app store:
+Download `PebbleChecklist.pbw` from the [latest release](https://github.com/johanngrobe/PebbleChecklist/releases/latest) on your phone and open it with the Pebble app, or build it yourself (see above) and run `pebble install --phone <your phone's IP>`.
 
-### Pebble Store
-<https://apps.repebble.com/5620e876768e7ada4e00007a>
+It has the same app ID as the store version, so it replaces the store version on your watch, and the next store update would replace it again.
 
-### Rebble Store
-<https://apps.rebble.io/en_US/application/5620e876768e7ada4e00007a>
+## Original app
+
+The original Checklist, without the features of this fork, is in the app stores:
+
+- Pebble Store: <https://apps.repebble.com/5620e876768e7ada4e00007a>
+- Rebble Store: <https://apps.rebble.io/en_US/application/5620e876768e7ada4e00007a>

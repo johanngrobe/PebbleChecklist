@@ -39,6 +39,10 @@ void checklist_deinit() {
   save_data_to_storage();
 }
 
+void checklist_save() {
+  save_data_to_storage();
+}
+
 #define LEGACY_NAME_LENGTH 50
 
 typedef struct {
@@ -65,7 +69,8 @@ static void migrate_v2_to_v3() {
       strncpy(s_checklist_items[i].name, block_buf[j].name, LEGACY_NAME_LENGTH);
       s_checklist_items[i].name[LEGACY_NAME_LENGTH] = '\0';
       s_checklist_items[i].is_checked = block_buf[j].is_checked;
-      s_checklist_items[i].sublist_id = block_buf[j].sublist_id;
+      s_checklist_items[i].remote_id = 0;
+      s_checklist_items[i].is_locked = 0;
     }
   }
 
@@ -159,7 +164,8 @@ void add_item(char *name) {
     s_checklist_items[s_checklist_length].name[MAX_NAME_LENGTH - 1] = '\0';
     utf8_trim_partial(s_checklist_items[s_checklist_length].name);
     s_checklist_items[s_checklist_length].is_checked = false;
-    s_checklist_items[s_checklist_length].sublist_id = 0;
+    s_checklist_items[s_checklist_length].remote_id = 0;
+    s_checklist_items[s_checklist_length].is_locked = 0;
 
     // capitalize the item
     // s_checklist_items[s_checklist_length].name[0] = toupper(int);
@@ -185,12 +191,22 @@ void checklist_item_toggle_checked(int id) {
   // printf("Num items checked: %i, Num items: %i", checklist_get_num_items_checked(), checklist_get_num_items());
 }
 
+int checklist_get_num_items_deletable() {
+  int num_deletable = 0;
+  for (int i = 0; i < s_checklist_length; i++) {
+    if (s_checklist_items[i].is_checked && !s_checklist_items[i].is_locked) {
+      num_deletable++;
+    }
+  }
+  return num_deletable;
+}
+
 int checklist_delete_completed_items() {
   int num_deleted = 0;
   int i = 0;
 
   while (i < s_checklist_length) {
-    if(s_checklist_items[i].is_checked) {
+    if(s_checklist_items[i].is_checked && !s_checklist_items[i].is_locked) {
       memmove(&s_checklist_items[i], &s_checklist_items[i+1], sizeof(s_checklist_items[0])*(s_checklist_length - i - 1));
       num_deleted++;
       s_checklist_length--;

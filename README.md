@@ -10,6 +10,31 @@ Using either the Pebble microphone or the fully-offline app settings page, add a
 
 Grocery shopping will never be the same.
 
+## Several lists
+
+You can have up to 8 lists. In the app's settings on your phone, tap the list name at the top to switch lists or create, rename and delete them. Each list is one of:
+
+- a **checklist**, stored on your watch and phone, like before
+- your **Cookidoo shopping list** (see below)
+- a **Home Assistant to-do list** (see below)
+
+On the watch, press Back in a list to see all your lists, and pick one to open it. Switching lists needs your phone, since the watch only stores the list it shows. "Show on watch" in the settings switches the watch to the list you're looking at.
+
+## Home Assistant to-do lists
+
+A list can be synced with any to-do list in Home Assistant (Shopping List, Local To-do, …), both ways. In the settings, open the ⋯ menu, choose **Home Assistant**, and enter your Home Assistant URL (e.g. `http://homeassistant.local:8123`, or your Nabu Casa URL) and a long-lived access token (your Home Assistant profile → Security). Then create a new list of type "Home Assistant to-do list" and pick the to-do list. Home Assistant 2024.8 or later is needed. For a URL that isn't on your home network or Nabu Casa, the Pebble app asks for permission the first time.
+
+## Cookidoo shopping list
+
+The app can show your Cookidoo (Thermomix) shopping list ("Einkaufsliste") on your watch. Open the app's settings in the Pebble app on your phone, open the ⋯ menu, choose **Cookidoo** and sign in with your Cookidoo account. A "Shopping list" list ("Einkaufsliste" in German) is added to your lists and shown on your watch:
+
+- recipe ingredients (with amounts) and your extra items are shown
+- checking items off on the watch checks them off in Cookidoo, and the reverse
+- items added by voice on the watch, or on the settings page, are added to Cookidoo as extra items
+- "Clear completed" removes checked extra items from Cookidoo; checked ingredients stay checked in Cookidoo but are hidden on the watch until they're unchecked there
+
+Synced lists (Cookidoo and Home Assistant) are synced when they're opened on the watch, every 2 minutes while the app is open, and shortly after every change on the watch. Your password only goes to Cookidoo's sign-in server. This uses the same unofficial API as the Home Assistant Cookidoo integration.
+
 ## Special build instructions
 
 To build the local config page, run `node buildConfigPage.js` from the project root. This should be done before `pebble build`.
